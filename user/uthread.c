@@ -4,6 +4,22 @@ struct uthread threads[MAX_UTHREADS];
 struct uthread *current_thread;
 
 /*
+initialize the user threads table. This function should be called once.
+*/
+void init_uthreads()
+{
+    int i;
+
+    for (i = 0; i < MAX_UTHREADS; i++)
+    {
+        threads[i].state = FREE;
+        threads[i].next_thread = &threads[(i + 1) % MAX_UTHREADS];
+    }
+
+    current_thread = 0;
+}
+
+/*
 This function receives as arguments a pointer to the user thread’s start
 function and a priority. The function should initialize the user thread in a
 free entry in the table, but not run it just yet. Once the thread’s fields are
@@ -14,6 +30,20 @@ top of the relevant ustack
 */
 int uthread_create(void (*start_func)(), enum sched_priority priority)
 {
+    struct uthread *uthread;
+    int i;
+    for (uthread = threads; uthread < &threads[MAX_UTHREADS]; uthread++)
+    {
+        if (uthread->state == FREE)
+        {
+            uthread->priority = priority;
+            uthread->context.ra = (uint64)start_func;
+            uthread->context.sp = (uint64)uthread->ustack + STACK_SIZE;
+            uthread->state = RUNNABLE;
+            return 0;
+        }
+    }
+    return -1;
 }
 
 /*
@@ -31,6 +61,19 @@ as in switching between two processes in the kernel.
 */
 void uthread_yield()
 {
+    struct uthread *current = uthread_self();
+    struct uthread *next_thread = current->next_thread;
+    struct context *old_context = &current->context;
+
+    current->state = RUNNABLE;
+    while (next_thread->state != RUNNABLE)
+    {
+        next_thread = next_thread->next_thread;
+    }
+
+    current_thread = next_thread;
+    uswtch(old_context, &current_thread->context);
+    return;
 }
 /*
 Terminates the calling user thread and transfers control to some other
@@ -40,6 +83,20 @@ uthread_exit the process should terminate (i.e., exit(…) should be called).
 */
 void uthread_exit()
 {
+    uthread_yield();
+    uthread_self()->state = FREE;
+
+    int i;
+    int flag = 0;
+    for (i = 0; i < MAX_UTHREADS; i++)
+    {
+        if (threads[i].state != FREE)
+            flag = 1;
+    }
+    if (flag == 0)
+    {
+        exit(0);
+    }
 }
 /*
 This function is called by the main user thread after it has created one or

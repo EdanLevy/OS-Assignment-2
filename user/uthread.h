@@ -32,6 +32,7 @@ struct uthread {
     enum tstate         state;          // FREE, RUNNING, RUNNABLE
     struct context      context;        // uswtch() here to run process
     enum sched_priority priority;       // scheduling priority
+    struct uthread*     next_thread;           // next thread in run queue
 };
 
 extern void uswtch(struct context*, struct context*);
