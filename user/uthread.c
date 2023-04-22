@@ -1,8 +1,9 @@
 #include "uthread.h"
+#include "user.h"
 
 struct uthread threads[MAX_UTHREADS];
 struct uthread *current_thread;
-
+void uthread_sched(struct uthread *current);
 /*
 initialize the user threads table. This function should be called once.
 */
@@ -31,7 +32,6 @@ top of the relevant ustack
 int uthread_create(void (*start_func)(), enum sched_priority priority)
 {
     struct uthread *uthread;
-    int i;
     for (uthread = threads; uthread < &threads[MAX_UTHREADS]; uthread++)
     {
         if (uthread->state == FREE)
@@ -68,7 +68,7 @@ void uthread_yield()
 
 enum sched_priority get_highest_priority(){
     int i;
-    enum sched_priority max_priority = sched_priority.LOW;
+    enum sched_priority max_priority = LOW;
     for (i = 0; i < MAX_UTHREADS; i++)
     {
         if (threads[i].state == RUNNABLE && threads[i].priority > max_priority)
@@ -145,6 +145,7 @@ int uthread_start_all()
         return -1;
     }
     uthread_sched(current_thread);
+    return 0;
 }
 /*
 This function sets the priority of the calling user thread to the
