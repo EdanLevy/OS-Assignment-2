@@ -62,18 +62,38 @@ as in switching between two processes in the kernel.
 void uthread_yield()
 {
     struct uthread *current = uthread_self();
+    current->state = RUNNABLE;
+    uthread_sched(current);
+}
+
+enum sched_priority get_highest_priority(){
+    int i;
+    enum sched_priority max_priority = sched_priority.LOW;
+    for (i = 0; i < MAX_UTHREADS; i++)
+    {
+        if (threads[i].state == RUNNABLE && threads[i].priority > max_priority)
+        {
+            max_priority = threads[i].priority;
+        }
+    }
+    return max_priority;
+}
+
+void uthread_sched(struct uthread *current){
     struct uthread *next_thread = current->next_thread;
     struct context *old_context = &current->context;
+    
+    enum sched_priority max_priority = get_highest_priority();
 
-    current->state = RUNNABLE;
-    while (next_thread->state != RUNNABLE)
+    while (next_thread->state != RUNNABLE && next_thread->priority != max_priority)
     {
         next_thread = next_thread->next_thread;
     }
 
     current_thread = next_thread;
+    current_thread->state = RUNNING;
     uswtch(old_context, &current_thread->context);
-    return;
+
 }
 /*
 Terminates the calling user thread and transfers control to some other
@@ -113,6 +133,18 @@ be implemented u
 */
 int uthread_start_all()
 {
+    int i;
+    int flag = 0;
+    for(i = 0; i < MAX_UTHREADS; i++){
+        if(threads[i].state != FREE){
+            flag = 1;
+            break;
+        }
+    }
+    if(flag == 0){
+        return -1;
+    }
+    uthread_sched(current_thread);
 }
 /*
 This function sets the priority of the calling user thread to the
